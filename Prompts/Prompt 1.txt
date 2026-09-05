@@ -1,0 +1,141 @@
+# Project: AI-Powered Automated BI Platform
+
+I want to build a production-quality AI-powered Business Intelligence platform.
+
+The core idea is:
+
+A user uploads a CSV or Excel sales/business dataset. The system automatically profiles and understands the dataset, identifies useful business metrics/KPIs, calculates them deterministically, generates an interactive dashboard, and eventually provides an AI Data Analyst that can answer natural-language questions about the uploaded data.
+
+The long-term architecture will contain:
+
+* Python
+* FastAPI
+* PostgreSQL for application metadata
+* DuckDB for analytical queries
+* Polars/Pandas for data processing
+* React + TypeScript for frontend
+* LLM-based AI capabilities
+* Structured AI outputs validated with Pydantic
+* Agent/tool-based data analysis
+* Automated insights
+* Anomaly detection
+* Natural-language data analysis
+
+IMPORTANT ENGINEERING PRINCIPLE:
+
+Separate deterministic analytics from AI reasoning.
+
+The LLM must NOT be responsible for calculating business numbers.
+
+For example:
+
+Revenue = SUM(Quantity × Sale_Price)
+
+Profit = Revenue - Cost
+
+Profit Margin = Profit / Revenue × 100
+
+These calculations must be performed by Python/SQL/DuckDB.
+
+The AI should interpret the dataset, recommend metrics, create analytical plans, select tools, and explain validated results.
+
+We will build the project incrementally.
+
+DO NOT implement the entire project at once.
+
+## Current task: PHASE 0
+
+Implement ONLY Phase 0.
+
+### Phase 0 objectives
+
+Create the initial professional backend foundation.
+
+Use:
+
+* Python
+* FastAPI
+* Pydantic
+* PostgreSQL-ready configuration
+* SQLAlchemy
+* Alembic
+* pytest
+* environment variables
+* structured project architecture
+* logging
+* Git-friendly configuration
+
+Create a clean structure that can later support:
+
+* dataset ingestion
+* data profiling
+* analytics
+* KPI engine
+* dashboard generation
+* AI services
+* AI agents
+* authentication
+* testing
+
+The initial structure should clearly separate:
+
+* API routes
+* configuration
+* models
+* schemas
+* services
+* repositories
+* business logic
+* utilities
+
+Implement:
+
+1. FastAPI application
+2. `/health` endpoint
+3. Configuration management using environment variables
+4. `.env.example`
+5. Logging configuration
+6. PostgreSQL database configuration
+7. SQLAlchemy setup
+8. Alembic setup
+9. pytest configuration
+10. Basic health endpoint test
+11. `.gitignore`
+12. requirements/dependency management
+13. README with setup instructions
+
+Do NOT implement:
+
+* file upload
+* dataset processing
+* Pandas/Polars processing
+* DuckDB
+* KPI calculations
+* dashboards
+* React
+* LLM
+* AI agents
+* authentication
+* user management
+
+Before writing code:
+
+1. Explain the proposed architecture.
+2. Explain why each major dependency is being introduced.
+3. Explain the responsibilities of each folder.
+4. Explain how this architecture will evolve in later phases.
+5. Identify any assumptions.
+
+Then implement Phase 0.
+
+After implementation:
+
+1. Show the final project structure.
+2. Explain each important file.
+3. Provide commands to run the backend.
+4. Provide commands to run tests.
+5. Verify that `/health` works.
+6. Explain the code so I can learn from it.
+7. Identify what we should NOT implement yet.
+
+Do not move to Phase 1 until I explicitly ask you to.

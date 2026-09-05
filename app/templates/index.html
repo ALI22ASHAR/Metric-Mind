@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MetricMind | AI-Powered Business Intelligence</title>
+  <meta name="description" content="Automated, deterministic AI Business Intelligence platform with real-time analytics, instant KPI calculation, and interactive dashboards.">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Chart.js & html2pdf.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="/static/css/main.css?v=16">
+  <style>
+    #flight-kpi-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 8, 15, 0.88);
+      backdrop-filter: blur(8px);
+      z-index: 3500;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    #flight-kpi-modal.active {
+      display: flex !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+    #flight-kpi-modal .modal-content {
+      max-width: 1440px !important;
+      width: 96vw !important;
+      height: 92vh !important;
+      max-height: 92vh !important;
+      padding: 0 !important;
+      border: 1px solid #24313f !important;
+      border-radius: 10px !important;
+      overflow: hidden !important;
+      background: #0b1118 !important;
+      display: flex !important;
+      flex-direction: column !important;
+      transform: none !important;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.85) !important;
+    }
+  </style>
+  <script>
+    function openFlightKpiModal() {
+      const modal = document.getElementById('flight-kpi-modal');
+      if (modal) {
+        modal.classList.add('active');
+        modal.style.display = 'flex';
+        modal.style.opacity = '1';
+        modal.style.pointerEvents = 'auto';
+      }
+    }
+    function closeFlightKpiModal() {
+      const modal = document.getElementById('flight-kpi-modal');
+      if (modal) {
+        modal.classList.remove('active');
+        modal.style.display = 'none';
+        modal.style.opacity = '0';
+        modal.style.pointerEvents = 'none';
+      }
+    }
+    window.openFlightKpiModal = openFlightKpiModal;
+    window.closeFlightKpiModal = closeFlightKpiModal;
+  </script>
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <!-- Top Navigation Bar -->
+  <header class="navbar">
+    <div class="nav-brand">
+      <div class="brand-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 3v18h18"></path>
+          <path d="m19 9-5 5-4-4-3 3"></path>
+        </svg>
+      </div>
+      <span>MetricMind</span>
+    </div>
+
+    <div class="nav-center">
+      <div class="dataset-select-wrap" style="display: flex; align-items: center; gap: 6px;">
+        <select id="dataset-select" class="dataset-select" title="Switch active dataset">
+          <option value="">Loading datasets...</option>
+        </select>
+        <button id="btn-delete-dataset" class="btn btn-secondary btn-sm" title="Delete current dataset" style="padding: 6px 9px; border-color: rgba(232, 103, 74, 0.4); color: #e8674a; display: none; align-items: center; justify-content: center; background: rgba(232, 103, 74, 0.08); border-radius: 6px; cursor: pointer; transition: all 0.2s ease;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+        </button>
+      </div>
+      <span id="domain-badge" class="badge badge-indigo" style="display: none;">DOMAIN</span>
+    </div>
+
+    <div class="nav-actions">
+      <!-- Direct Universal KPI Builder & Record Explorer Trigger -->
+      <button id="btn-open-flight-kpi" class="btn btn-secondary" onclick="openFlightKpiModal()" style="border-color: #f2a93b; color: #f2a93b; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: pointer;" title="Universal KPI Builder & Record Explorer">
+        <span style="font-size: 14px; pointer-events: none;">📊</span>
+        <span style="pointer-events: none;">Universal KPI Builder</span>
+      </button>
+
+      <button id="btn-open-notifications" class="btn btn-secondary" title="Executive Insights & Anomaly Feed" style="position: relative;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+        </svg>
+        <span>Insights</span>
+        <span id="nav-insights-count" class="badge-counter" style="display: none;">0</span>
+      </button>
+
+      <button id="btn-open-settings" class="btn btn-secondary" title="Configure LLM API Key" style="display: none;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+        <span>API Key</span>
+      </button>
+
+      <button id="btn-open-upload" class="btn btn-primary" id="upload-trigger-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="17 8 12 3 7 8"></polyline>
+          <line x1="12" y1="3" x2="12" y2="15"></line>
+        </svg>
+        <span>Upload Dataset</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="app-container">
+    <!-- Empty State View -->
+    <section id="no-dataset-view" class="glass-panel" style="display: none; padding: 4rem 2rem; text-align: center; margin-top: 2rem;">
+      <div class="upload-icon-wrap" style="width: 4.5rem; height: 4.5rem; margin-bottom: 1.5rem;">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect>
+          <line x1="3" y1="9" x2="21" y2="9"></line>
+          <line x1="9" y1="21" x2="9" y2="9"></line>
+        </svg>
+      </div>
+      <h2 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem;">No Datasets Uploaded</h2>
+      <p style="color: var(--text-muted); max-width: 440px; margin: 0 auto 1.5rem;">
+        Upload a sales or business CSV/Excel file to automatically profile data, calculate KPIs, and generate an interactive dashboard.
+      </p>
+      <div style="display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap;">
+        <button class="btn btn-primary" onclick="document.getElementById('upload-modal').classList.add('active')">
+          Upload Your First Dataset
+        </button>
+        <button class="btn btn-secondary" onclick="openFlightKpiModal()" style="border-color: #f2a93b; color: #f2a93b; font-weight: 700; background: rgba(242, 169, 59, 0.1);">
+          📊 Launch Universal KPI Builder
+        </button>
+      </div>
+    </section>
+
+    <!-- Active Dashboard View -->
+    <section id="dashboard-view" style="display: none;">
+      <!-- Header Info & Executive Toolbar -->
+      <div class="dashboard-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 1rem;">
+        <div class="header-title-group">
+          <h1 id="dash-title">Executive Intelligence Dashboard</h1>
+          <p id="dash-subtitle" class="header-subtitle">Real-time performance analytics and KPI tracking</p>
+        </div>
+
+        <!-- Executive Feature Toolbar -->
+        <div class="dashboard-toolbar" style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;">
+          <button id="btn-open-report" class="btn btn-secondary btn-sm" title="Generate Executive Narrative Report">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+            </svg>
+            <span>Executive Report</span>
+          </button>
+
+          <button id="btn-open-scenario" class="btn btn-secondary btn-sm" title="What-If Financial Simulation">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="4" y1="21" x2="4" y2="14"></line>
+              <line x1="4" y1="10" x2="4" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12" y2="3"></line>
+              <line x1="20" y1="21" x2="20" y2="16"></line>
+              <line x1="20" y1="12" x2="20" y2="3"></line>
+            </svg>
+            <span>What-If Simulator</span>
+          </button>
+
+          <button id="btn-open-forecast" class="btn btn-secondary btn-sm" title="Time-Series Forecasting">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
+              <polyline points="16 7 22 7 22 13"></polyline>
+            </svg>
+            <span>Forecast</span>
+          </button>
+
+          <button id="btn-open-flight-kpi-toolbar" class="btn btn-primary btn-sm" style="background: linear-gradient(135deg, #f2a93b 0%, #e8674a 100%); border: none; color: #1a1206; font-weight: 700; box-shadow: 0 4px 14px rgba(242, 169, 59, 0.4); cursor: pointer;" title="Universal KPI Builder & Record Explorer" onclick="openFlightKpiModal()">
+            <span style="pointer-events: none;">📊 Universal KPI Builder</span>
+          </button>
+
+          <button id="btn-open-kpi-builder" class="btn btn-primary btn-sm" title="Self-Service KPI Builder: Build custom KPIs with column, aggregation, and visual pickers" style="background: linear-gradient(135deg, var(--accent-primary) 0%, #a855f7 100%); border: none; box-shadow: 0 4px 14px rgba(124, 92, 255, 0.35); cursor: pointer;" onclick="openFlightKpiModal()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
+              <path d="M12 20v-6M6 20V10M18 20V4"></path>
+            </svg>
+            <span style="pointer-events: none;">+ Custom KPI</span>
+          </button>
+
+          <button id="btn-open-metric-builder" class="btn btn-secondary btn-sm" title="Build Custom Business KPI Formula">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span>+ Formula KPI</span>
+          </button>
+
+          <!-- Export Dropdown -->
+          <div class="dropdown-wrap" style="position: relative; display: inline-block;">
+            <button id="btn-export-dropdown" class="btn btn-secondary btn-sm">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>Export</span>
+            </button>
+            <div id="export-menu" class="glass-panel" style="display: none; position: absolute; right: 0; top: 110%; width: 170px; z-index: 50; padding: 0.5rem; flex-direction: column; gap: 0.25rem;">
+              <button id="btn-export-pdf" class="btn-menu-item">Download PDF</button>
+              <button id="btn-export-csv" class="btn-menu-item">Download CSV</button>
+              <button id="btn-export-excel" class="btn-menu-item">Download Excel (.xlsx)</button>
+              <button id="btn-export-report-md" class="btn-menu-item">Report (.md)</button>
+              <button id="btn-export-report-html" class="btn-menu-item">Report (.html)</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Global Filter Bar -->
+      <div id="filter-bar" class="glass-panel filter-bar"></div>
+
+      <!-- Dynamic 12-Column Grid -->
+      <div id="dashboard-grid" class="dashboard-grid"></div>
+    </section>
+  </main>
+
+  <!-- Floating AI Analyst Button -->
+  <button id="btn-open-chat" class="btn-floating-chat">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+    </svg>
+    <span>AI Analyst</span>
+  </button>
+
+  <!-- AI Analyst Chat Drawer -->
+  <aside id="chat-drawer" class="chat-drawer">
+    <div class="chat-header">
+      <div class="chat-header-left">
+        <div class="chat-avatar">
+          <div class="chat-avatar-ring"></div>
+          <div class="chat-avatar-inner">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a3 3 0 0 0-3 3v1H7a3 3 0 0 0-3 3v9a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V9a3 3 0 0 0-3-3h-2V5a3 3 0 0 0-3-3Z"/>
+              <circle cx="9" cy="13" r="1.25" fill="currentColor"/>
+              <circle cx="15" cy="13" r="1.25" fill="currentColor"/>
+              <path d="M9 17h6"/>
+            </svg>
+          </div>
+          <span class="chat-avatar-status"></span>
+        </div>
+        <div class="chat-header-text">
+          <h3>Data Interrogation</h3>
+          <div class="chat-header-sub">
+            <span class="chat-status-dot"></span>
+            <span id="chat-status-text">AI Analyst online</span>
+          </div>
+        </div>
+      </div>
+      <div class="chat-header-actions">
+        <button id="btn-clear-chat" class="chat-icon-btn" title="Clear conversation" aria-label="Clear conversation">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+          </svg>
+        </button>
+        <button id="btn-close-chat" class="chat-icon-btn chat-icon-btn-close" title="Close" aria-label="Close chat">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 6L6 18"/><path d="M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div id="chat-messages" class="chat-messages">
+      <!-- Welcome card is rendered by chat.js once dataset context is loaded -->
+    </div>
+
+    <!-- Suggested Questions Chips -->
+    <div class="chat-suggestions-wrap">
+      <div class="chat-suggestions-label">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2v.3a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V17c0-.8.4-1.5 1-2A7 7 0 0 0 12 2Z"/>
+        </svg>
+        <span>Try asking</span>
+      </div>
+      <div id="chat-suggestions" class="chat-suggestions"></div>
+    </div>
+
+    <!-- Input Bar -->
+    <div class="chat-input-wrap">
+      <div class="chat-input-shell">
+        <textarea id="chat-input" class="chat-input" placeholder="Ask anything about your data..." rows="1"></textarea>
+        <div class="chat-input-meta">
+          <span class="chat-input-hint">
+            <kbd>Enter</kbd> to send · <kbd>Shift</kbd>+<kbd>Enter</kbd> for new line
+          </span>
+        </div>
+      </div>
+      <button id="btn-chat-send" class="chat-send-btn" aria-label="Send message">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Executive Insights & Anomaly Notification Drawer (Sidebar) -->
+  <aside id="notifications-drawer" class="notifications-drawer">
+    <div class="notif-header">
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span class="badge badge-emerald">Automated Intelligence</span>
+        <h3 style="font-size: 1rem; font-weight: 700;">Insights & Anomaly Feed</h3>
+      </div>
+      <button id="btn-close-notifications" class="btn btn-secondary btn-sm" style="padding: 0.25rem 0.5rem;">&times;</button>
+    </div>
+
+    <!-- Filter Pills -->
+    <div class="notif-filter-tabs">
+      <button class="tab-btn active" data-filter="all">All Alerts</button>
+      <button class="tab-btn" data-filter="critical">Critical</button>
+      <button class="tab-btn" data-filter="insights">Insights</button>
+      <button class="tab-btn" data-filter="anomalies">Anomalies</button>
+    </div>
+
+    <!-- Scrollable Feed List -->
+    <div id="notif-feed-list" class="notif-feed-list">
+      <p style="color: var(--text-muted); font-size: 0.8125rem; text-align: center; padding-top: 2rem;">Loading analytical intelligence feed...</p>
+    </div>
+  </aside>
+
+  <!-- Upload Modal with Glowing Progress Line -->
+  <div id="upload-modal" class="modal-overlay">
+    <div class="modal-content glass-panel" style="max-width: 520px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
+        <h3 style="font-size: 1.125rem; font-weight: 700;">Ingest Business Dataset</h3>
+        <button id="btn-close-upload" class="btn btn-secondary btn-sm" style="padding: 0.25rem 0.5rem;">&times;</button>
+      </div>
+
+      <div id="upload-dropzone" class="upload-dropzone">
+        <input type="file" id="file-input" accept=".csv,.xlsx" style="display: none;" />
+        <div class="upload-icon-wrap">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+        </div>
+        <h4 class="upload-title">Drop your CSV or Excel file here</h4>
+        <p class="upload-desc">Supports .csv and .xlsx up to 50MB. We'll automatically profile columns and generate an analytical model.</p>
+        
+        <!-- Animated Loading Progress Line -->
+        <div id="upload-progress-container" style="display: none; width: 100%; margin-top: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.35rem;">
+            <span id="upload-stage-label">Uploading & Ingesting...</span>
+            <span id="upload-stage-pct">25%</span>
+          </div>
+          <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 9999px; overflow: hidden; position: relative;">
+            <div id="upload-progress-bar" style="width: 25%; height: 100%; background: linear-gradient(90deg, #6366f1, #10b981); border-radius: 9999px; transition: width 0.4s ease;"></div>
+          </div>
+          <p id="upload-status-text" style="color: var(--accent-primary); font-size: 0.8125rem; margin-top: 0.75rem; font-weight: 600; text-align: center;"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dynamic KPI Breakdown Drill-Down Modal -->
+  <div id="kpi-modal" class="modal-overlay">
+    <div class="modal-content glass-panel" style="max-width: 800px; width: 90vw; max-height: 85vh; overflow-y: auto;">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-glass); padding-bottom: 1rem; margin-bottom: 1rem;">
+        <div>
+          <span class="badge badge-indigo" id="kpi-modal-badge">KPI BREAKDOWN</span>
+          <h2 id="kpi-modal-title" style="font-size: 1.25rem; font-weight: 700; margin-top: 0.25rem;">Total Revenue Breakdown</h2>
+        </div>
+        <button id="btn-close-kpi-modal" class="btn btn-secondary btn-sm">&times;</button>
+      </div>
+
+      <!-- Dimension Tabs -->
+      <div id="kpi-dimension-tabs" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.25rem;"></div>
+
+      <!-- Breakdown Content Area -->
+      <div id="kpi-breakdown-content">
+        <div style="height: 240px; margin-bottom: 1.5rem;">
+          <canvas id="kpi-breakdown-canvas"></canvas>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th id="kpi-th-dimension">Dimension Segment</th>
+                <th id="kpi-th-metric">Value</th>
+                <th>Share %</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="kpi-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- What-If Scenario Simulation Modal -->
+  <div id="scenario-modal" class="modal-overlay">
+    <div class="modal-content glass-panel" style="max-width: 680px; width: 90vw;">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-glass); padding-bottom: 1rem; margin-bottom: 1rem;">
+        <div>
+          <span class="badge badge-amber">FINANCIAL SIMULATOR</span>
+          <h2 style="font-size: 1.25rem; font-weight: 700; margin-top: 0.25rem;">What-If Scenario Modeling</h2>
+        </div>
+        <button id="btn-close-scenario" class="btn btn-secondary btn-sm">&times;</button>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr; gap: 1.25rem; margin-bottom: 1.5rem;">
+        <div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem; font-size: 0.875rem;">
+            <span>Price Adjustment:</span>
+            <strong id="val-price-slider" style="color: var(--accent-primary);">+0%</strong>
+          </div>
+          <input type="range" id="slider-price" min="-50" max="100" value="0" step="5" style="width: 100%; cursor: pointer;" />
+        </div>
+
+        <div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem; font-size: 0.875rem;">
+            <span>Cost of Goods (COGS) Shift:</span>
+            <strong id="val-cost-slider" style="color: #f43f5e;">+0%</strong>
+          </div>
+          <input type="range" id="slider-cost" min="-50" max="100" value="0" step="5" style="width: 100%; cursor: pointer;" />
+        </div>
+
+        <div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem; font-size: 0.875rem;">
+            <span>Sales Volume Shift:</span>
+            <strong id="val-volume-slider" style="color: var(--accent-emerald);">+0%</strong>
+          </div>
+          <input type="range" id="slider-volume" min="-50" max="150" value="0" step="5" style="width: 100%; cursor: pointer;" />
+        </div>
+      </div>
+
+      <!-- Simulation Impact Cards -->
+      <div id="scenario-results-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 1rem;"></div>
+
+      <div id="scenario-takeaway" class="glass-panel" style="padding: 0.875rem; font-size: 0.8125rem; color: var(--text-muted); line-height: 1.4;">
+        Adjust sliders above to project bottom-line profit and margin shifts.
+      </div>
+    </div>
+  </div>
+
+  <!-- Executive Report Modal -->
+  <div id="report-modal" class="modal-overlay">
+    <div class="modal-content glass-panel" style="max-width: 840px; width: 92vw; max-height: 88vh; overflow-y: auto;">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-glass); padding-bottom: 1rem; margin-bottom: 1rem;">
+        <div>
+          <span class="badge badge-indigo">EXECUTIVE BRIEF</span>
+          <h2 id="report-title-modal" style="font-size: 1.25rem; font-weight: 700; margin-top: 0.25rem;">Executive Intelligence Report</h2>
+        </div>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <button id="btn-download-report-md" class="btn btn-secondary btn-sm">Download .MD</button>
+          <button id="btn-download-report-html" class="btn btn-primary btn-sm">Download .HTML</button>
+          <button id="btn-close-report" class="btn btn-secondary btn-sm">&times;</button>
+        </div>
+      </div>
+
+      <div id="report-body" style="font-size: 0.875rem; line-height: 1.6; color: var(--text-secondary);">
+        <p>Generating executive performance narrative...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Forecast Modal -->
+  <div id="forecast-modal" class="modal-overlay">
+    <div class="modal-content glass-panel" style="max-width: 780px; width: 90vw;">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-glass); padding-bottom: 1rem; margin-bottom: 1rem;">
+        <div>
+          <span class="badge badge-indigo">PREDICTIVE FORECAST</span>
+          <h2 style="font-size: 1.25rem; font-weight: 700; margin-top: 0.25rem;">3-Month Forward Projection (Holt-Winters / Trend)</h2>
+        </div>
+        <button id="btn-close-forecast" class="btn btn-secondary btn-sm">&times;</button>
+      </div>
+
+      <div style="height: 280px; margin-bottom: 1rem;">
+        <canvas id="forecast-canvas"></canvas>
+      </div>
+
+      <p id="forecast-summary-text" style="font-size: 0.8125rem; color: var(--text-muted); line-height: 1.4;"></p>
+    </div>
+  </div>
+
+  <!-- Custom Metric Formula Builder Modal -->
+  <div id="custom-metric-modal" class="modal-overlay">
+    <div class="modal-content glass-panel" style="max-width: 580px; width: 92vw;">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-glass); padding-bottom: 1rem; margin-bottom: 1rem;">
+        <div>
+          <span class="badge badge-emerald">CUSTOM LOGIC</span>
+          <h3 style="font-size: 1.125rem; font-weight: 700; margin-top: 0.25rem;">Custom Business Metric Formula</h3>
+        </div>
+        <button id="btn-close-metric-builder" class="btn btn-secondary btn-sm">&times;</button>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 1rem;">
+        <div>
+          <label style="display: block; font-size: 0.8125rem; margin-bottom: 0.35rem; color: var(--text-muted);">Metric Name / Label:</label>
+          <input type="text" id="metric-label-input" class="chat-input" placeholder="e.g. Net Margin % or Gross Profit" style="width: 100%; border-radius: var(--radius-sm);" />
+        </div>
+
+        <div>
+          <label style="display: block; font-size: 0.8125rem; margin-bottom: 0.35rem; color: var(--text-muted);">Format Type:</label>
+          <select id="metric-format-select" class="dataset-select" style="width: 100%;">
+            <option value="currency">Currency ($1,234.56)</option>
+            <option value="percentage">Percentage (12.34%)</option>
+            <option value="number">Number (1,234.56)</option>
+            <option value="integer">Integer (1,234)</option>
+          </select>
+        </div>
+
+        <div>
+          <label style="display: block; font-size: 0.8125rem; margin-bottom: 0.25rem; color: var(--text-muted);">Mathematical Expression:</label>
+          <input type="text" id="metric-formula-input" class="chat-input" placeholder="e.g. (Total_Revenue - Total_Cost) / Total_Revenue * 100" style="width: 100%; border-radius: var(--radius-sm); font-family: var(--font-mono);" />
+          
+          <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.4rem; display: block;">Quick click tokens to insert:</span>
+          <div id="formula-token-chips" class="formula-chips-wrap">
+            <button class="formula-chip formula-chip-op" data-token="+">+</button>
+            <button class="formula-chip formula-chip-op" data-token="-">-</button>
+            <button class="formula-chip formula-chip-op" data-token="*">*</button>
+            <button class="formula-chip formula-chip-op" data-token="/">/</button>
+            <button class="formula-chip formula-chip-op" data-token="(">(</button>
+            <button class="formula-chip formula-chip-op" data-token=")">)</button>
+          </div>
+        </div>
+
+        <div id="metric-builder-status" style="display: none; font-size: 0.8125rem; padding: 0.5rem; border-radius: var(--radius-sm);"></div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.25rem;">
+        <button id="btn-save-custom-metric" class="btn btn-primary">Compile & Register Metric</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Self-Service KPI Builder Modal -->
+  <div id="self-service-kpi-modal" class="modal-overlay">
+    <div class="modal-content glass-panel" style="max-width: 980px; width: 95vw; max-height: 90vh; overflow-y: auto; padding: 1.75rem;">
+      <!-- Modal Header -->
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-glass); padding-bottom: 1rem; margin-bottom: 1.25rem;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span class="badge badge-indigo" style="font-weight: 700; letter-spacing: 0.05em;">SELF-SERVICE KPI ENGINE</span>
+            <span id="kpi-live-duckdb-tag" class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; font-family: var(--font-mono); font-size: 0.7rem;">In-Memory DuckDB OLAP</span>
+          </div>
+          <h2 style="font-size: 1.35rem; font-weight: 700; margin-top: 0.35rem; color: #fff;">Custom KPI & Visual Builder</h2>
+          <p style="font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.15rem;">Dynamically aggregate any dataset column, choose grouping breakdown, and pin directly to your dashboard.</p>
+        </div>
+        <button id="btn-close-kpi-builder" class="btn btn-secondary btn-sm" style="font-size: 1.25rem; line-height: 1; padding: 0.35rem 0.65rem;">&times;</button>
+      </div>
+
+      <!-- Modal Body (Two-Column Layout) -->
+      <div style="display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 1.5rem; align-items: start;">
+        
+        <!-- Left Column: Step-by-Step Config Form -->
+        <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+          
+          <!-- Step 1: Metric Column Picker -->
+          <div class="glass-panel" style="padding: 1rem; border-radius: var(--radius-md);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <label style="font-size: 0.8125rem; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 0.35rem;">
+                <span class="badge badge-indigo" style="padding: 0.15rem 0.4rem; font-size: 0.7rem;">Step 1</span> Select Column to Measure
+              </label>
+              <span id="col-data-type-badge" class="badge badge-cyan" style="font-size: 0.7rem;">Numeric</span>
+            </div>
+            <select id="kpi-builder-col" class="dataset-select" style="width: 100%; font-weight: 500;">
+              <option value="" disabled selected>Loading dataset columns...</option>
+            </select>
+          </div>
+
+          <!-- Step 2: Aggregation & Calculation Type -->
+          <div class="glass-panel" style="padding: 1rem; border-radius: var(--radius-md);">
+            <label style="font-size: 0.8125rem; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 0.35rem; margin-bottom: 0.65rem;">
+              <span class="badge badge-indigo" style="padding: 0.15rem 0.4rem; font-size: 0.7rem;">Step 2</span> Calculation / Aggregation
+            </label>
+            <div id="kpi-builder-agg-options" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem;">
+              <button type="button" class="btn-menu-item kpi-agg-btn active" data-agg="avg">Average</button>
+              <button type="button" class="btn-menu-item kpi-agg-btn" data-agg="sum">Sum</button>
+              <button type="button" class="btn-menu-item kpi-agg-btn" data-agg="count">Count</button>
+              <button type="button" class="btn-menu-item kpi-agg-btn" data-agg="rate">Rate (% True)</button>
+              <button type="button" class="btn-menu-item kpi-agg-btn" data-agg="percent_of_total">% of Total</button>
+              <button type="button" class="btn-menu-item kpi-agg-btn" data-agg="min">Minimum</button>
+              <button type="button" class="btn-menu-item kpi-agg-btn" data-agg="max">Maximum</button>
+            </div>
+
+            <!-- Rate Condition Container (Visible only when Rate selected) -->
+            <div id="kpi-rate-condition-wrap" style="display: none; margin-top: 0.75rem; padding: 0.65rem; background: rgba(15, 23, 42, 0.6); border-radius: var(--radius-sm); border: 1px dashed var(--border-glass-strong);">
+              <span style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Calculate % of rows where:</span>
+              <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <span id="rate-condition-col-name" style="font-weight: 600; font-size: 0.8125rem; color: var(--accent-cyan);">Column</span>
+                <span style="font-size: 0.8125rem; color: var(--text-muted); font-family: var(--font-mono);">=</span>
+                <input type="text" id="rate-condition-value" class="chat-input" value="true" style="padding: 0.25rem 0.65rem; font-size: 0.8125rem; width: 120px;" />
+                <span style="font-size: 0.75rem; color: var(--text-muted);">(e.g. true, 1, or Yes)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 3: Breakdown / Group By Dimension -->
+          <div class="glass-panel" style="padding: 1rem; border-radius: var(--radius-md);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <label style="font-size: 0.8125rem; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 0.35rem;">
+                <span class="badge badge-indigo" style="padding: 0.15rem 0.4rem; font-size: 0.7rem;">Step 3</span> Breakdown Dimension (Optional)
+              </label>
+              <span style="font-size: 0.75rem; color: var(--text-muted);">Leave empty for Single KPI Card</span>
+            </div>
+            <select id="kpi-builder-dim" class="dataset-select" style="width: 100%;">
+              <option value="">(None - Single Metric KPI Card)</option>
+            </select>
+          </div>
+
+          <!-- Step 4: Output Display Type & Auto-Suggest -->
+          <div class="glass-panel" style="padding: 1rem; border-radius: var(--radius-md);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.65rem;">
+              <label style="font-size: 0.8125rem; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 0.35rem;">
+                <span class="badge badge-indigo" style="padding: 0.15rem 0.4rem; font-size: 0.7rem;">Step 4</span> Display Visualization
+              </label>
+            </div>
+            <div id="kpi-builder-visual-options" style="display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.65rem;">
+              <button type="button" class="btn-menu-item kpi-visual-btn active" data-type="auto">✦ Auto-Suggest</button>
+              <button type="button" class="btn-menu-item kpi-visual-btn" data-type="kpi_card">KPI Card</button>
+              <button type="button" class="btn-menu-item kpi-visual-btn" data-type="bar_chart">Bar Chart</button>
+              <button type="button" class="btn-menu-item kpi-visual-btn" data-type="line_chart">Line Chart</button>
+              <button type="button" class="btn-menu-item kpi-visual-btn" data-type="pie_chart">Donut / Pie</button>
+              <button type="button" class="btn-menu-item kpi-visual-btn" data-type="table">Data Table</button>
+            </div>
+            <div id="kpi-auto-reason-pill" class="badge" style="background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); font-size: 0.75rem; width: 100%; display: block; text-align: left; padding: 0.4rem 0.65rem; border-radius: var(--radius-sm);">
+              ✦ Inferred Visual: Single summary metric card
+            </div>
+          </div>
+
+          <!-- Step 5: Title & Formatting -->
+          <div class="glass-panel" style="padding: 1rem; border-radius: var(--radius-md);">
+            <div style="display: grid; grid-template-columns: 1.5fr 1fr 0.8fr; gap: 0.65rem;">
+              <div>
+                <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Widget Title:</label>
+                <input type="text" id="kpi-builder-title" class="chat-input" placeholder="e.g. Avg Flight Delay" style="width: 100%; font-size: 0.8125rem;" />
+              </div>
+              <div>
+                <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Format:</label>
+                <select id="kpi-builder-format" class="dataset-select" style="width: 100%; font-size: 0.8125rem;">
+                  <option value="number">Number (1,234.5)</option>
+                  <option value="percentage">Percentage (12.3%)</option>
+                  <option value="duration">Duration / Unit</option>
+                  <option value="currency">Currency ($1,234)</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Unit / Suffix:</label>
+                <input type="text" id="kpi-builder-unit" class="chat-input" placeholder="e.g. min, %" style="width: 100%; font-size: 0.8125rem;" />
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right Column: Live Interactive Preview Card -->
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+          <div class="glass-panel" style="padding: 1.25rem; border-radius: var(--radius-md); min-height: 480px; display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); letter-spacing: 0.05em; text-transform: uppercase;">Live Calculation Preview</span>
+                <span id="kpi-preview-timing" class="badge badge-indigo" style="font-family: var(--font-mono); font-size: 0.7rem;">-- ms</span>
+              </div>
+
+              <!-- Preview Display Canvas & Containers -->
+              <div id="kpi-preview-container" style="margin-top: 0.5rem; min-height: 340px; display: flex; align-items: center; justify-content: center;">
+                
+                <!-- 1. KPI Card Preview Mode -->
+                <div id="preview-mode-card" style="width: 100%; text-align: center; padding: 1.5rem;">
+                  <div id="preview-card-title" style="font-size: 0.95rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.5rem;">Average Delay</div>
+                  <div id="preview-card-value" style="font-size: 2.75rem; font-weight: 800; color: #fff; font-family: var(--font-sans); letter-spacing: -0.02em;">--</div>
+                  <div id="preview-card-subtitle" style="font-size: 0.8rem; color: var(--accent-emerald); margin-top: 0.5rem;">Calculated deterministically via DuckDB</div>
+                </div>
+
+                <!-- 2. Chart Preview Mode (Bar/Line/Pie) -->
+                <div id="preview-mode-chart" style="width: 100%; height: 320px; display: none;">
+                  <canvas id="kpi-preview-canvas"></canvas>
+                </div>
+
+                <!-- 3. Table Preview Mode -->
+                <div id="preview-mode-table" style="width: 100%; max-height: 320px; overflow-y: auto; display: none;">
+                  <table class="table-glass" style="width: 100%; font-size: 0.8125rem;">
+                    <thead>
+                      <tr>
+                        <th id="preview-table-th-dim">Dimension</th>
+                        <th id="preview-table-th-val">Value</th>
+                      </tr>
+                    </thead>
+                    <tbody id="preview-table-tbody"></tbody>
+                  </table>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Error or Info Status -->
+            <div id="kpi-builder-error" style="display: none; padding: 0.65rem; background: rgba(244, 63, 94, 0.15); border: 1px solid rgba(244, 63, 94, 0.3); color: #fb7185; font-size: 0.8rem; border-radius: var(--radius-sm); margin-top: 0.75rem;"></div>
+
+            <!-- Save CTA Footer -->
+            <div style="display: flex; gap: 0.75rem; margin-top: 1.25rem; border-top: 1px solid var(--border-glass); padding-top: 1rem;">
+              <button id="btn-cancel-kpi-builder" class="btn btn-secondary" style="flex: 1;">Cancel</button>
+              <button id="btn-save-kpi-to-dash" class="btn btn-primary" style="flex: 1.5; background: linear-gradient(135deg, var(--accent-primary) 0%, #a855f7 100%); font-weight: 600;">✦ Save to Dashboard</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Universal KPI Builder & Record Explorer Dedicated Modal -->
+  <div id="flight-kpi-modal" class="modal-overlay" style="display: none; position: fixed; inset: 0; background: rgba(5, 8, 15, 0.88); backdrop-filter: blur(8px); z-index: 3000; align-items: center; justify-content: center; padding: 16px;">
+    <div class="modal-content" style="max-width: 1440px; width: 96vw; height: 92vh; padding: 0; border: 1px solid #24313f; border-radius: 10px; overflow: hidden; background: #0b1118; display: flex; flex-direction: column; box-shadow: 0 24px 64px rgba(0,0,0,0.85);">
+      <!-- Top Modal Bar -->
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; background: #121b26; border-bottom: 1px solid #24313f;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="color: #f2a93b; font-size: 18px;">📊</span>
+          <div>
+            <h2 style="font-weight: 700; color: #fff; font-size: 14px; margin: 0; letter-spacing: -0.01em;">Universal KPI Builder & Record Explorer</h2>
+            <p style="font-size: 11px; color: #8393a3; margin: 0;">Self-service metric computation and record explorer for any dataset</p>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <a href="/kpi-tool" target="_blank" class="btn btn-secondary btn-sm" style="font-size: 11.5px; padding: 5px 12px; text-decoration: none; color: #35c7b3; border-color: #24313f; display: flex; align-items: center; gap: 5px;" title="Open in a standalone full browser window">
+            <span>Open in Full Tab ↗</span>
+          </a>
+          <button id="btn-close-flight-kpi" onclick="window.closeFlightKpiModal && window.closeFlightKpiModal()" style="background: none; border: none; color: #8393a3; font-size: 22px; cursor: pointer; line-height: 1; padding: 2px 6px;">✕</button>
+        </div>
+      </div>
+      <!-- Embedded Interactive Tool -->
+      <iframe id="flight-kpi-frame" src="/kpi-tool" style="width: 100%; height: 100%; border: none; background: #0b1118;"></iframe>
+    </div>
+  </div>
+
+  <script>
+    window.openFlightKpiModal = function() {
+      const modal = document.getElementById('flight-kpi-modal');
+      if (modal) {
+        modal.classList.add('active');
+        modal.style.display = 'flex';
+        modal.style.opacity = '1';
+        modal.style.pointerEvents = 'auto';
+      }
+    };
+    window.closeFlightKpiModal = function() {
+      const modal = document.getElementById('flight-kpi-modal');
+      if (modal) {
+        modal.classList.remove('active');
+        modal.style.display = 'none';
+        modal.style.opacity = '0';
+        modal.style.pointerEvents = 'none';
+      }
+    };
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        window.closeFlightKpiModal();
+      }
+    });
+
+    // Also attach click listeners directly once DOM loads
+    document.addEventListener('DOMContentLoaded', function() {
+      ['btn-open-flight-kpi', 'btn-open-flight-kpi-toolbar', 'btn-open-kpi-builder'].forEach(function(id) {
+        const el = document.getElementById(id);
+        if (el) {
+          el.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            window.openFlightKpiModal();
+          });
+        }
+      });
+      const closeBtn = document.getElementById('btn-close-flight-kpi');
+      if (closeBtn) {
+        closeBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          window.closeFlightKpiModal();
+        });
+      }
+      const modal = document.getElementById('flight-kpi-modal');
+      if (modal) {
+        modal.addEventListener('click', function(e) {
+          if (e.target === modal) {
+            window.closeFlightKpiModal();
+          }
+        });
+      }
+    });
+  </script>
+
+  <!-- Main JavaScript App -->
+  <script type="module" src="/static/js/app.js?v=18"></script>
+</body>
+</html>

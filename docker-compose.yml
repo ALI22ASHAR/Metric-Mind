@@ -1,0 +1,66 @@
+services:
+  # MetricMind Core FastAPI Backend & Web Platform
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: metricmind-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PROJECT_NAME=MetricMind
+      - ENVIRONMENT=production
+      - REQUIRE_AUTH=true
+      - DATABASE_URL=postgresql+asyncpg://metricmind:metricmind_secure_pass@postgres:5432/metricmind
+      - REDIS_URL=redis://redis:6379/0
+      - LLM_PROVIDER=mock
+      - UPLOAD_DIR=/app/data/uploads
+    volumes:
+      - metricmind_uploads:/app/data/uploads
+      - metricmind_clean:/app/data/clean
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # PostgreSQL 16 Metadata & Session Store
+  postgres:
+    image: postgres:16-alpine
+    container_name: metricmind-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=metricmind
+      - POSTGRES_PASSWORD=metricmind_secure_pass
+      - POSTGRES_DB=metricmind
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U metricmind"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis 7 In-Memory Cache & Task Queue
+  redis:
+    image: redis:7-alpine
+    container_name: metricmind-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:
+  metricmind_uploads:
+  metricmind_clean:
